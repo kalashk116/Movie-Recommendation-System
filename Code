@@ -1,0 +1,44 @@
+import pandas as pd
+import numpy as np
+import re
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import ipywidgets as wid
+
+movies = pd.read_csv('imdb_data.csv')
+
+def clean_title(title):
+    return re.sub(r'[^a-zA-Z0-9]', '', title)
+
+movies['clean_title'] = movies['Title'].apply(clean_title)
+
+vectorizer = TfidfVectorizer(ngram_range=(1,2))
+tfidf_matrix = vectorizer.fit_transform(movies['clean_title'])
+
+def search(title):
+    title = clean_title(title)
+    query_vec = vectorizer.transform([title])
+    similarity = cosine_similarity(query_vec, tfidf_matrix).flatten()
+    indices = np.argsort(similarity)[-5:] 
+    indices = indices[::-1]
+    
+    results = movies.iloc[indices].copy()
+    return results
+
+movie_input = wid.Text(
+    value='',
+    description='Movie Title: ',
+    disabled=False
+)
+movie_list = wid.Output()
+
+def on_type(change):
+    with movie_list:
+        movie_list.clear_output()
+        title = change['new']
+        if len(title) > 1:
+            results = search(title)
+            display(results[['Title', 'Year', 'Rated']])  # Display only relevant information
+
+movie_input.observe(on_type, names='value')
+display(movie_input, movie_list)
